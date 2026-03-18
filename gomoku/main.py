@@ -256,8 +256,8 @@ class GomokuGame:
     def _update_timer(self):
         if self.game_over:
             return
-        # Check timeout in countdown mode
-        if self.time_limit > 0 and self.turn_start_time is not None:
+        # Check timeout in countdown mode (skip during AI thinking — check after AI finishes)
+        if self.time_limit > 0 and self.turn_start_time is not None and not self.ai_thinking:
             remaining = self._get_display_time(self.current_player)
             if remaining <= 0:
                 self._handle_timeout()
@@ -385,11 +385,17 @@ class GomokuGame:
         self.restart_btn.config(state=tk.DISABLED)
         self.home_btn.config(state=tk.DISABLED)
 
-        def compute():
-            result = self.board.get_best_move(self.current_player)
-            self.root.after(0, lambda: self._apply_ai_move(result))
-
         if self.board.difficulty == 2:
+            # Determine AI search time budget for minimax
+            ai_time = 2.0
+            if self.time_limit > 0:
+                remaining = self._get_display_time(self.current_player)
+                ai_time = min(ai_time, max(0.5, remaining - 0.5))
+
+            def compute():
+                result = self.board.get_best_move(self.current_player, time_limit=ai_time)
+                self.root.after(0, lambda: self._apply_ai_move(result))
+
             threading.Thread(target=compute, daemon=True).start()
         else:
             result = self.board.get_best_move(self.current_player)
@@ -402,6 +408,12 @@ class GomokuGame:
         self.home_btn.config(state=tk.NORMAL)
         if move is None or self.game_over:
             return
+        # Countdown mode: check if AI ran out of time during thinking
+        if self.time_limit > 0:
+            remaining = self._get_display_time(self.current_player)
+            if remaining <= 0:
+                self._handle_timeout()
+                return
         self._stop_turn()
         x, y = move
         self.place_stone(x, y)
