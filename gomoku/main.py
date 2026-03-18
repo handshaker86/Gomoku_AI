@@ -26,7 +26,7 @@ def _create_board_from_config(config, size=15):
     """Create board and players from a settings config dict."""
     mode = config["mode"]
     difficulty = config.get("difficulty", "Medium")
-    ai_color = config.get("ai_color", "Black")
+    player_color = config.get("player_color", "Black")
     depth_str = config.get("depth", "5")
     defense_rate_str = config.get("defense_rate", "2.0")
 
@@ -44,7 +44,7 @@ def _create_board_from_config(config, size=15):
         player_2 = Player("P2", -1, is_ai=False)
         board = Eval_func_board(size, player_1, player_2, defense_rate=defense_rate)
     else:
-        ai_is_p1 = ai_color == "Black"
+        ai_is_p1 = player_color != "Black"  # AI is p1 (black) when player chose white
         player_1 = Player("AI" if ai_is_p1 else "You", 1, is_ai=ai_is_p1)
         player_2 = Player("AI" if not ai_is_p1 else "You", -1, is_ai=not ai_is_p1)
 
@@ -422,7 +422,7 @@ class GameSettings:
         mode_frame.pack(fill=tk.X, padx=30, pady=5)
 
         mode_row = tk.Frame(mode_frame, bg=BG_COLOR)
-        mode_row.pack(fill=tk.X)
+        mode_row.pack(fill=tk.X, pady=3)
         tk.Label(mode_row, text="Mode:", font=lbl_font, bg=BG_COLOR, fg=DARK_TEXT).pack(side=tk.LEFT)
         self.game_mode = tk.StringVar(value="vs AI")
         mode_menu = tk.OptionMenu(mode_row, self.game_mode, "vs AI", "PvP",
@@ -431,21 +431,21 @@ class GameSettings:
         mode_menu["menu"].config(font=opt_font)
         mode_menu.pack(side=tk.RIGHT)
 
+        # Your Color (in mode frame, not AI settings)
+        self.color_row = tk.Frame(mode_frame, bg=BG_COLOR)
+        self.color_row.pack(fill=tk.X, pady=3)
+        tk.Label(self.color_row, text="Your Color:", font=lbl_font, bg=BG_COLOR, fg=DARK_TEXT).pack(side=tk.LEFT)
+        self.player_color = tk.StringVar(value="Black")
+        color_menu = tk.OptionMenu(self.color_row, self.player_color, "Black", "White")
+        color_menu.config(font=opt_font, bg=BG_COLOR, highlightthickness=0, width=10)
+        color_menu["menu"].config(font=opt_font)
+        color_menu.pack(side=tk.RIGHT)
+
         # --- AI Settings (hidden when PvP) ---
         self.ai_frame = tk.LabelFrame(root, text="  AI Settings  ",
                                       font=("Helvetica", 12, "bold"),
                                       bg=BG_COLOR, fg=DARK_TEXT, padx=15, pady=8)
         self.ai_frame.pack(fill=tk.X, padx=30, pady=5)
-
-        # AI Color
-        color_row = tk.Frame(self.ai_frame, bg=BG_COLOR)
-        color_row.pack(fill=tk.X, pady=3)
-        tk.Label(color_row, text="AI Color:", font=lbl_font, bg=BG_COLOR, fg=DARK_TEXT).pack(side=tk.LEFT)
-        self.ai_color = tk.StringVar(value="Black")
-        color_menu = tk.OptionMenu(color_row, self.ai_color, "Black", "White")
-        color_menu.config(font=opt_font, bg=BG_COLOR, highlightthickness=0, width=10)
-        color_menu["menu"].config(font=opt_font)
-        color_menu.pack(side=tk.RIGHT)
 
         # Difficulty
         diff_row = tk.Frame(self.ai_frame, bg=BG_COLOR)
@@ -496,10 +496,12 @@ class GameSettings:
 
     def _on_mode_change(self, value):
         if value == "PvP":
+            self.color_row.pack_forget()
             self.ai_frame.pack_forget()
             self.custom_frame.pack_forget()
         else:
-            # Re-pack AI frame after mode frame, before start button
+            # Re-pack color row, AI frame, before start button
+            self.color_row.pack(fill=tk.X, pady=3)
             self.start_btn.pack_forget()
             self.custom_frame.pack_forget()
             self.ai_frame.pack(fill=tk.X, padx=30, pady=5)
@@ -519,7 +521,7 @@ class GameSettings:
         config = {
             "mode": self.game_mode.get(),
             "difficulty": self.difficulty.get(),
-            "ai_color": self.ai_color.get(),
+            "player_color": self.player_color.get(),
             "depth": self.depth_var.get(),
             "defense_rate": self.defense_rate_var.get(),
         }
