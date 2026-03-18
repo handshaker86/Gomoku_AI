@@ -1,5 +1,9 @@
 # Gomoku
 
+<p align="center">
+  <img src="Gomuku_AI.png" alt="Gomoku AI Preview" width="600">
+</p>
+
 A Gomoku (Five-in-a-Row) game with AI opponent, built with Python and Tkinter.
 
 ## Features
