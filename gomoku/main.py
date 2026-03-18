@@ -1,4 +1,5 @@
 import tkinter as tk
+import threading
 from gomoku.player import Player
 from gomoku.eval_func_board import Eval_func_board
 from gomoku.minimax_board import Minimax_board
@@ -24,6 +25,7 @@ class GomokuGame:
 
         # Tuple format: (x, y, player, oval_id)
         self.move_history = []
+        self.ai_thinking = False
 
         self.draw_board()
 
@@ -50,13 +52,15 @@ class GomokuGame:
 
     def handle_click(self, event):
         """Handle player's click on the board"""
+        if self.ai_thinking:
+            return
         x, y = int(event.x / self.cell_size), int(event.y / self.cell_size)
         if self.board.check_valid(x, y) and self.board.check_available(x, y):
             self.place_stone(x, y)
             if not self.check_game_over(x, y):
                 # Switch turn after placing a stone
                 self.current_player = self.board.get_opponent(self.current_player)
-                self.root.after(500, self.ai_move)
+                self.root.after(100, self.ai_move)
 
     def handle_mousewheel(self, event):
         """
@@ -97,6 +101,8 @@ class GomokuGame:
         Undo the most recent move: remove the stone from the board and canvas,
         and revert turn back to the player who made the move.
         """
+        if self.ai_thinking:
+            return
         if not self.move_history:
             print("No move to undo.")
             return
@@ -119,14 +125,35 @@ class GomokuGame:
             self.root.after(500, self.ai_move)
 
     def ai_move(self):
-        """Let the AI make its move automatically"""
-        if self.current_player.is_ai:
-            x, y = self.board.get_best_move(self.current_player)
-            self.place_stone(x, y)
-            if not self.check_game_over(x, y):
-                self.current_player = self.board.get_opponent(self.current_player)
-                if self.current_player.is_ai:
-                    self.root.after(500, self.ai_move)
+        """Let the AI make its move in a background thread (for Minimax)"""
+        if not self.current_player.is_ai:
+            return
+        self.ai_thinking = True
+        self.root.title("Gomoku - AI thinking...")
+
+        def compute():
+            result = self.board.get_best_move(self.current_player)
+            self.root.after(0, lambda: self._apply_ai_move(result))
+
+        if self.board.difficulty == 2:
+            threading.Thread(target=compute, daemon=True).start()
+        else:
+            # Basic AI is fast enough to run on main thread
+            result = self.board.get_best_move(self.current_player)
+            self._apply_ai_move(result)
+
+    def _apply_ai_move(self, move):
+        """Apply the AI's computed move on the main thread"""
+        self.ai_thinking = False
+        self.root.title("Gomoku")
+        if move is None:
+            return
+        x, y = move
+        self.place_stone(x, y)
+        if not self.check_game_over(x, y):
+            self.current_player = self.board.get_opponent(self.current_player)
+            if self.current_player.is_ai:
+                self.root.after(100, self.ai_move)
 
     def check_game_over(self, x, y):
         """Check if the game is over"""
@@ -183,14 +210,14 @@ class GameSettings:
             pady=5
         )
         self.depth_entry = tk.Entry(root, font=entry_font, justify="center")
-        self.depth_entry.insert(0, "3")  # Default value is 3
+        self.depth_entry.insert(0, "5")  # Default value is 5
         self.depth_entry.pack(pady=2)
 
         # New: Defense Rate input
         tk.Label(root, text="Defense Rate:", font=label_font).pack(pady=5)
         self.defense_rate_entry = tk.Entry(root, font=entry_font, justify="center")
         # Default value is set to Advanced AI's default 0.5 (adjustable for Basic AI as needed)
-        self.defense_rate_entry.insert(0, "0.5")
+        self.defense_rate_entry.insert(0, "2.0")
         self.defense_rate_entry.pack(pady=2)
 
         # Start game button
@@ -204,7 +231,7 @@ class GameSettings:
         try:
             defense_rate = float(self.defense_rate_entry.get())
         except ValueError:
-            defense_rate = 0.5  # Use default value if parsing fails
+            defense_rate = 2.0  # Use default value if parsing fails
 
         # Create Player objects based on the selected AI player
         player_1 = Player("Player 1", 1, is_ai=self.ai_player.get() == 1)
@@ -220,7 +247,7 @@ class GameSettings:
             try:
                 depth = int(self.depth_entry.get())
             except ValueError:
-                depth = 3  # Use default value if parsing fails
+                depth = 5  # Use default value if parsing fails
             board = Minimax_board(
                 self.size, player_1, player_2, depth=depth, defense_rate=defense_rate
             )

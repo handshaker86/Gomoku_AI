@@ -7,15 +7,15 @@ class Base_board:
 
     WIN_SCORE = 99999999
     LIVE_FOUR_SCORE = 5000000
-    BLOCKED_FOUR_SCORE = 50000
-    LIVE_THREE_SCORE = 50000
-    BLOCKED_THREE_SCORE = 500
-    LIVE_TWO_SCORE = 50
-    BLOCKED_TWO_SCORE = 10
-    LIVE_ONE_SCORE = 1
-    BLOCKED_ONE_SCORE = 0.5
+    BLOCKED_FOUR_SCORE = 500000
+    LIVE_THREE_SCORE = 100000
+    BLOCKED_THREE_SCORE = 5000
+    LIVE_TWO_SCORE = 500
+    BLOCKED_TWO_SCORE = 100
+    LIVE_ONE_SCORE = 10
+    BLOCKED_ONE_SCORE = 1
     DEAD_SCORE = 0
-    DOUBLE_SHAPE_BONUS = 500000
+    DOUBLE_SHAPE_BONUS = 1000000
 
     def __init__(self, size, player_1: Player, player_2: Player):
         """
@@ -227,7 +227,7 @@ class Base_board:
                     else:
                         add_score = self.BLOCKED_FOUR_SCORE
 
-            if add_score >= 5000:
+            if add_score >= 50000:
                 shape_count += 1
 
             score += add_score
