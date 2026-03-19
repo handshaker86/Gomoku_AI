@@ -76,12 +76,12 @@ class Minimax_board(Base_board):
                     added.add((ni, nj))
         self._candidate_stack.append((x, y, removed, added))
 
-        # Save score board region before update
+        # Save score board region before update (use Python lists to avoid numpy copy overhead)
         r = 4
         i_min, i_max = max(0, x - r), min(self.size, x + r + 1)
         j_min, j_max = max(0, y - r), min(self.size, y + r + 1)
-        old_p1 = self.score_board_p1[i_min:i_max, j_min:j_max].copy()
-        old_p2 = self.score_board_p2[i_min:i_max, j_min:j_max].copy()
+        old_p1 = self.score_board_p1[i_min:i_max, j_min:j_max].tolist()
+        old_p2 = self.score_board_p2[i_min:i_max, j_min:j_max].tolist()
         self._score_stack.append((i_min, i_max, j_min, j_max, old_p1, old_p2))
 
         # Place stone
@@ -106,11 +106,13 @@ class Minimax_board(Base_board):
         # Remove stone
         self.board[x, y] = 0
 
-        # Restore score boards
+        # Restore score boards (write back from Python lists)
         if self._score_stack:
             i_min, i_max, j_min, j_max, old_p1, old_p2 = self._score_stack.pop()
-            self.score_board_p1[i_min:i_max, j_min:j_max] = old_p1
-            self.score_board_p2[i_min:i_max, j_min:j_max] = old_p2
+            for ri, i in enumerate(range(i_min, i_max)):
+                for rj, j in enumerate(range(j_min, j_max)):
+                    self.score_board_p1[i, j] = old_p1[ri][rj]
+                    self.score_board_p2[i, j] = old_p2[ri][rj]
 
         # Restore candidate set
         if self._candidate_stack:
@@ -255,14 +257,15 @@ class Minimax_board(Base_board):
                     self.history_table[move[0], move[1]] += depth * depth
                     break
 
-            # Store in transposition table
+            # Store in transposition table (replace if deeper or same depth)
             if max_eval <= orig_alpha:
                 tt_flag = UPPERBOUND
             elif max_eval >= beta:
                 tt_flag = LOWERBOUND
             else:
                 tt_flag = EXACT
-            if len(self.transposition_table) < TT_MAX_SIZE:
+            existing = self.transposition_table.get(self.zobrist_hash)
+            if existing is None or depth >= existing[0]:
                 self.transposition_table[self.zobrist_hash] = (
                     depth,
                     tt_flag,
@@ -304,7 +307,8 @@ class Minimax_board(Base_board):
                 tt_flag = UPPERBOUND
             else:
                 tt_flag = EXACT
-            if len(self.transposition_table) < TT_MAX_SIZE:
+            existing = self.transposition_table.get(self.zobrist_hash)
+            if existing is None or depth >= existing[0]:
                 self.transposition_table[self.zobrist_hash] = (
                     depth,
                     tt_flag,
@@ -327,7 +331,7 @@ class Minimax_board(Base_board):
                 + self.defense_rate * self.score_board_p1[x, y]
             )
 
-    def get_best_move(self, player, time_limit=2.0):
+    def get_best_move(self, player, time_limit=5.0):
         """
         Choose the best move using Iterative Deepening and Minimax with Alpha-Beta pruning.
         """
@@ -335,8 +339,9 @@ class Minimax_board(Base_board):
         best_score = -np.inf
         start_time = time.time()
 
-        # Clear per-search state
-        self.transposition_table.clear()
+        # Clear per-search heuristics (keep TT across moves for reuse)
+        if len(self.transposition_table) > TT_MAX_SIZE:
+            self.transposition_table.clear()
         self.history_table.fill(0)
         for i in range(len(self.killer_moves)):
             self.killer_moves[i] = []
@@ -389,6 +394,10 @@ class Minimax_board(Base_board):
             if depth_best_move is not None:
                 best_score = depth_best_score
                 best_move = depth_best_move
+                # Principal variation: search best move first at next depth
+                if depth_best_move in candidate_moves:
+                    candidate_moves.remove(depth_best_move)
+                    candidate_moves.insert(0, depth_best_move)
 
             current_depth += 1
 

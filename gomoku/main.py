@@ -20,7 +20,7 @@ BUTTON_FG = "#FFFFFF"
 DIFFICULTY_PRESETS = {
     "Easy": (3, 1.5),
     "Medium": (5, 2.0),
-    "Hard": (7, 2.5),
+    "Hard": (8, 2.0),
 }
 
 
@@ -387,7 +387,7 @@ class GomokuGame:
 
         if self.board.difficulty == 2:
             # Determine AI search time budget for minimax
-            ai_time = 2.0
+            ai_time = 5.0
             if self.time_limit > 0:
                 remaining = self._get_display_time(self.current_player)
                 ai_time = min(ai_time, max(0.5, remaining - 0.5))
